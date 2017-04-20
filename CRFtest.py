@@ -12,6 +12,7 @@ import random
 
 partiallyTaggedDataset = open("dataset/CRFdataset.txt").read().split('\n')
 rawDataset = open("dataset/CRFdatasetWithoutTags.txt").read().split('\n')
+devTest = open("dataset/Dev_testset.txt").read().split('\n')
 
 nlp = spacy.load('en')
 
@@ -34,9 +35,9 @@ for sent in words:
     wordsInFeatures.append(sentWithSplittedWords)
 
 # POS tag (Spacy) and First word feature is appended to each word of the sentence array
-def addFeatures2Words(wordsInFeatures,rawDataset):
-    for i in xrange(0,len(rawDataset)):
-        doc = nlp(unicode(rawDataset[i]))
+def addFeatures2Words(wordsInFeatures):
+    for i in xrange(0,len(wordsInFeatures)):
+        doc = nlp(unicode(" ".join([t for t,r in wordsInFeatures[i]])))  # converting the tagged dataset to a sentence for retrieving pos tags
         for j in xrange(0,len(doc)):
             wordsInFeatures[i][j].insert(1,doc[j].tag_)
             if j == 0:
@@ -44,7 +45,8 @@ def addFeatures2Words(wordsInFeatures,rawDataset):
             else:
                 wordsInFeatures[i][j].insert(1,'0')
 
-addFeatures2Words(wordsInFeatures,rawDataset)
+
+addFeatures2Words(wordsInFeatures)
 
 def wordsToFeatures(sent,i):
     word = sent[i][0]
@@ -57,7 +59,7 @@ def wordsToFeatures(sent,i):
         'word.istitle=%s' % word.istitle(),
         'word.isdigit=%s' % word.isdigit(),
         # 'word.isFirstWord='+ isFirstWord,
-        'postag=' + postag
+        'postag=' + postag[:2]
         ]
     if i > 0:
         word1 = sent[i-1][0]
@@ -68,7 +70,7 @@ def wordsToFeatures(sent,i):
             '-1:word.istitle=%s' % word1.istitle(),
             '-1:word.isupper=%s' % word1.isupper(),
             # '-1:word.isFirstWord='+ isFirstWord1,
-            '-1:postag=' + postag1
+            '-1:postag=' + postag1[:2]
             ])
     else:
         features.append('BOS')
@@ -82,7 +84,7 @@ def wordsToFeatures(sent,i):
             '+1:word.istitle=%s' % word1.istitle(),
             '+1:word.isupper=%s' % word1.isupper(),
             # '+1:word.isFirstWord='+ isFirstWord1,
-            '+1:postag=' + postag1
+            '+1:postag=' + postag1[:2]
             ])
     else:
         features.append('EOS')
@@ -147,7 +149,7 @@ while(True):
     rawDataset.append(query)
     splittedWords = query.split(' ')
     wordsInFeatures.append([list(z) for z in zip(splittedWords,['']*len(splittedWords))])
-    addFeatures2Words(wordsInFeatures,rawDataset)
+    addFeatures2Words(wordsInFeatures)
     testQuery =  [sent2features(sent) for sent in wordsInFeatures]
     print crfsuiteTrainer.predict(testQuery)
 
