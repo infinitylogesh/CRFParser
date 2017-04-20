@@ -9,44 +9,45 @@ from sklearn_crfsuite import scorers
 from sklearn_crfsuite import metrics
 import spacy
 import random
+from collections import Counter
 
-partiallyTaggedDataset = open("dataset/CRFdataset.txt").read().split('\n')
-rawDataset = open("dataset/CRFdatasetWithoutTags.txt").read().split('\n')
-devTest = open("dataset/Dev_testset.txt").read().split('\n')
+# Training dataset
+partiallyTaggedDataset = open("dataset/CRFdataset_trigrams.txt").read().split('\n')
+# Dev test set
+devTestDataset = open("dataset/Dev_testset.txt").read().split('\n')
 
+# Loading spacy en library
 nlp = spacy.load('en')
 
 
 words = []
-wordsInFeatures = []
+wordsWithFeatures = []
 rawWords = []
 
 # Splitting the taggedDataset to Array of sentence and words
-for line in partiallyTaggedDataset:
-    splittedLines = line.split(',')
-    words.append(splittedLines)
-
-# Partiallytaggeddataset is split into words with features
-for sent in words:
-    sentWithSplittedWords = []
-    for taggedWords in sent:
-        splittedWords = taggedWords.split(' ')
-        sentWithSplittedWords.append(splittedWords)
-    wordsInFeatures.append(sentWithSplittedWords)
+def dataset2WordArray(dataset):
+    wordsWithFeatures = []
+    for line in dataset:
+        splittedLines = line.split(',')
+        sentWithSplittedWords = []
+        for taggedWords in splittedLines:
+            splittedWords = taggedWords.split(' ')
+            sentWithSplittedWords.append(splittedWords)
+        wordsWithFeatures.append(sentWithSplittedWords)
+    return wordsWithFeatures
 
 # POS tag (Spacy) and First word feature is appended to each word of the sentence array
-def addFeatures2Words(wordsInFeatures):
-    for i in xrange(0,len(wordsInFeatures)):
-        doc = nlp(unicode(" ".join([t for t,r in wordsInFeatures[i]])))  # converting the tagged dataset to a sentence for retrieving pos tags
+def addFeatures2Words(wordsWithFeatures):
+    for i in xrange(0, len(wordsWithFeatures)):
+        sentence = " ".join([t for t,r in wordsWithFeatures[i]]) # converting the tagged dataset to a sentence for retrieving pos tags
+        doc = nlp(unicode(sentence))
         for j in xrange(0,len(doc)):
-            wordsInFeatures[i][j].insert(1,doc[j].tag_)
+            wordsWithFeatures[i][j].insert(1,doc[j].tag_)
             if j == 0:
-                wordsInFeatures[i][j].insert(1,'1')
+                wordsWithFeatures[i][j].insert(1, '1')
             else:
-                wordsInFeatures[i][j].insert(1,'0')
-
-
-addFeatures2Words(wordsInFeatures)
+                wordsWithFeatures[i][j].insert(1, '0')
+    return wordsWithFeatures
 
 def wordsToFeatures(sent,i):
     word = sent[i][0]
@@ -59,7 +60,7 @@ def wordsToFeatures(sent,i):
         'word.istitle=%s' % word.istitle(),
         'word.isdigit=%s' % word.isdigit(),
         # 'word.isFirstWord='+ isFirstWord,
-        'postag=' + postag[:2]
+        'postag=' + postag
         ]
     if i > 0:
         word1 = sent[i-1][0]
@@ -70,7 +71,7 @@ def wordsToFeatures(sent,i):
             '-1:word.istitle=%s' % word1.istitle(),
             '-1:word.isupper=%s' % word1.isupper(),
             # '-1:word.isFirstWord='+ isFirstWord1,
-            '-1:postag=' + postag1[:2]
+            '-1:postag=' + postag1
             ])
     else:
         features.append('BOS')
@@ -84,7 +85,7 @@ def wordsToFeatures(sent,i):
             '+1:word.istitle=%s' % word1.istitle(),
             '+1:word.isupper=%s' % word1.isupper(),
             # '+1:word.isFirstWord='+ isFirstWord1,
-            '+1:postag=' + postag1[:2]
+            '+1:postag=' + postag1
             ])
     else:
         features.append('EOS')
@@ -94,19 +95,26 @@ def wordsToFeatures(sent,i):
 def sent2features(sent):
     return [wordsToFeatures(sent, i) for i in range(len(sent))]
 
+#  Extracting lables from sentence array
 def sent2labels(sent):
     return [label for token, isFirstWord, postag, label in sent]
 
+#  Extracting words alone from sentence array
 def sent2tokens(sent):
     return [token for token, isFirstWord, postag, label in sent]
 
 # print words[1]
 # print wordsInFeatures[0]
+wordsWithFeatures = dataset2WordArray(partiallyTaggedDataset)
+wordsWithFeatures = addFeatures2Words(wordsWithFeatures)
+devTestWithFeatures = dataset2WordArray(devTestDataset)
+devTestWithFeatures = addFeatures2Words(devTestWithFeatures)
 
-print len(wordsInFeatures)
+print len(wordsWithFeatures)
 random.seed(3)
-random.shuffle(wordsInFeatures)
-train = wordsInFeatures
+random.shuffle(wordsWithFeatures)
+train = wordsWithFeatures
+
 # test = wordsInFeatures[:2988]
 
 # for i in xrange(0,len(train)):
@@ -120,13 +128,13 @@ train = wordsInFeatures
 #         if w[3]=='SRCH':
 #             print w[0],w[2]
 
+
 X_train =  [sent2features(sent) for sent in train]
 y_train = [sent2labels(sent) for sent in train]
 
 
-
-# X_test = [sent2features(sent) for sent in test]
-# y_test = [sent2labels(sent) for sent in test]
+X_test = [sent2features(sent) for sent in devTestWithFeatures]
+y_test = [sent2labels(sent) for sent in devTestWithFeatures]
 
 crfsuiteTrainer = sklearn_crfsuite.CRF(algorithm='lbfgs',c1=0.1,
                                        c2=0.1,
@@ -134,23 +142,48 @@ crfsuiteTrainer = sklearn_crfsuite.CRF(algorithm='lbfgs',c1=0.1,
                                        all_possible_transitions=True)
 crfsuiteTrainer.fit(X_train,y_train)
 
-# y_pred = crfsuiteTrainer.predict(X_test)
-
+y_pred = crfsuiteTrainer.predict(X_test)
 labels = list(crfsuiteTrainer.classes_)
-# print metrics.flat_f1_score(y_test, y_pred,average='weighted', labels=labels)
+print metrics.flat_f1_score(y_test, y_pred,average='weighted', labels=labels)
+
+def print_state_features(state_features):
+    for (attr, label), weight in state_features:
+        print("%0.6f %-8s %s" % (weight, label, attr))
+
+print("Top positive:")
+print_state_features(Counter(crfsuiteTrainer.state_features_).most_common(30))
+
+print("\nTop negative:")
+print_state_features(Counter(crfsuiteTrainer.state_features_).most_common()[-30:])
+
+
+
+sorted_labels = sorted(
+    labels,
+    key=lambda name: (name[1:], name[0])
+)
+print(metrics.flat_classification_report(
+    y_test, y_pred, labels=sorted_labels, digits=3
+))
+
+for i in xrange(0,len(devTestDataset)):
+    print " ".join([t for t,a,b,r in devTestWithFeatures[i]])
+    print y_test[i]
+    print y_pred[i]
+
 # print test[4],y_train[4]
 # print y_pred[4]
 # print X_train[4]
 
 while(True):
     query = raw_input(">>")
-    wordsInFeatures = []
+    wordsWithFeatures = []
     rawDataset =[]
     rawDataset.append(query)
     splittedWords = query.split(' ')
-    wordsInFeatures.append([list(z) for z in zip(splittedWords,['']*len(splittedWords))])
-    addFeatures2Words(wordsInFeatures)
-    testQuery =  [sent2features(sent) for sent in wordsInFeatures]
+    wordsWithFeatures.append([list(z) for z in zip(splittedWords, [''] * len(splittedWords))])
+    addFeatures2Words(wordsWithFeatures)
+    testQuery =  [sent2features(sent) for sent in wordsWithFeatures]
     print crfsuiteTrainer.predict(testQuery)
 
 

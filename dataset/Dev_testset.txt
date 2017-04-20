@@ -5,7 +5,7 @@ upcoming OTHR,birthday SRCH,parties SRCH
 marathon SRCH,in OTHR,Chennai OTHR
 cricket SRCH,tournament SRCH
 live SRCH,concerts SRCH
-webinars SRCH,in OTHR,kolkata SRCH
+webinars SRCH,in OTHR,kolkata OTHR
 registration SRCH,for OTHR,codevita SRCH
 deadline SRCH,for OTHR,codevita SRCH,registration SRCH
 eminence SRCH,session SRCH
@@ -21,11 +21,3 @@ Events SRCH,in OTHR,TCS OTHR,Canada OTHR
 firforline SRCH,Events SRCH,in OTHR,TCS OTHR,Canada OTHR
 Townhalls SRCH,happening OTHR,this OTHR,week OTHR
 TCS SRCH,Maitree SRCH,events SRCH,in OTHR,pune OTHR
-
-
-
-
-
-
-
-
